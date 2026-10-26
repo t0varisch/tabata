@@ -31,10 +31,24 @@ export function runView(id: string): View {
 		void lock?.release().catch(() => {});
 		lock = null;
 	};
+	// Сигналы текущей фазы — от её точного начала
+	const reschedule = () => {
+		if (!runner) return;
+		const i = runner.state().index;
+		schedulePhaseBeeps(runner.startedAt(), phases[i].duration, i === phases.length - 1);
+	};
+
+	// Возврат на экран: будим звук, догоняем время, снимаем сигналы, поставленные до сна, и ставим заново
 	const onVisible = () => {
 		if (document.visibilityState !== "visible" || !runner) return;
 		lock = null; // браузер отпускает блокировку, когда вкладка скрыта
-		if (!runner.state().done) void wake();
+		unlockAudio();
+		const st = runner.tick();
+		cancelBeeps();
+		if (!st.done) {
+			void wake();
+			if (!st.paused) reschedule();
+		}
 		paint();
 	};
 
@@ -73,8 +87,12 @@ export function runView(id: string): View {
 		label.textContent = p.label;
 		time.textContent = fmt(st.remaining);
 		next.textContent = p.next ? `Дальше: ${p.next}` : "";
-		pauseBtn.replaceChildren(icon(st.paused ? "play" : "pause", 34));
-		pauseBtn.setAttribute("aria-label", st.paused ? "Продолжить" : "Пауза");
+		// Иконку меняем только при смене состояния: пересоздание каждые 100 мс съедает нажатия
+		if (pauseBtn.dataset.paused !== String(st.paused)) {
+			pauseBtn.dataset.paused = String(st.paused);
+			pauseBtn.replaceChildren(icon(st.paused ? "play" : "pause", 34));
+			pauseBtn.setAttribute("aria-label", st.paused ? "Продолжить" : "Пауза");
+		}
 		el.classList.toggle("paused", st.paused);
 	};
 
@@ -98,13 +116,14 @@ export function runView(id: string): View {
 
 	const runControls = () =>
 		controls.replaceChildren(
-			h("button.run-btn", { type: "button", "aria-label": "Назад на интервал", onclick: () => (cancelBeeps(), runner?.prev(), paint()) }, icon("prev", 30)),
+			h("button.run-btn", { type: "button", "aria-label": "Назад на интервал", onclick: () => (unlockAudio(), cancelBeeps(), runner?.prev(), paint()) }, icon("prev", 30)),
 			pauseBtn,
-			h("button.run-btn", { type: "button", "aria-label": "Вперёд на интервал", onclick: () => (cancelBeeps(), runner?.next(), paint()) }, icon("next", 30)),
+			h("button.run-btn", { type: "button", "aria-label": "Вперёд на интервал", onclick: () => (unlockAudio(), cancelBeeps(), runner?.next(), paint()) }, icon("next", 30)),
 			h("button.run-btn", { type: "button", "aria-label": "Стоп", onclick: stop }, icon("stop", 26)),
 		);
 
 	pauseBtn.addEventListener("click", () => {
+		unlockAudio();
 		if (!runner) return;
 		if (runner.state().paused) runner.resume();
 		else runner.pause();
@@ -136,7 +155,7 @@ export function runView(id: string): View {
 				if (i > 0) vibrate(vibrateOn);
 			},
 			onPause: () => cancelBeeps(),
-			onResume: (i) => schedulePhaseBeeps(runner!.startedAt(), phases[i].duration, i === phases.length - 1),
+			onResume: () => reschedule(),
 			onDone: () => {
 				if (vibrateOn) vibrate(true);
 				unwake();

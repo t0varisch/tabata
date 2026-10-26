@@ -15,6 +15,9 @@ export class Runner {
 	private index = 0;
 	private phaseStart = 0;
 	private pausedAt: number | null = null;
+	// Те же отметки по настоящим часам: на Android performance.now стоит, пока телефон спит
+	private phaseStartWall = 0;
+	private pausedAtWall: number | null = null;
 	private done = false;
 	private readonly before: number[];
 
@@ -22,6 +25,7 @@ export class Runner {
 		private readonly phases: Phase[],
 		private readonly events: RunnerEvents,
 		private readonly now: () => number = () => performance.now(),
+		private readonly wall: () => number = () => Date.now(),
 	) {
 		let sum = 0;
 		this.before = phases.map((p) => {
@@ -35,7 +39,8 @@ export class Runner {
 		this.index = 0;
 		this.done = this.phases.length === 0;
 		this.pausedAt = null;
-		this.phaseStart = this.now();
+		this.pausedAtWall = null;
+		this.restartPhase();
 		if (this.done) this.events.onDone?.();
 		else this.announce();
 	}
@@ -43,8 +48,11 @@ export class Runner {
 	tick(): RunnerState {
 		if (this.done || this.pausedAt !== null) return this.state();
 		const t = this.now();
+		const lost = this.wall() - this.phaseStartWall - (t - this.phaseStart);
+		if (lost > 1000) this.phaseStart -= lost;
 		while (!this.done && t - this.phaseStart >= this.phases[this.index].duration * 1000) {
 			this.phaseStart += this.phases[this.index].duration * 1000;
+			this.phaseStartWall += this.phases[this.index].duration * 1000;
 			this.advance();
 		}
 		return this.state();
@@ -53,26 +61,29 @@ export class Runner {
 	pause(): void {
 		if (this.done || this.pausedAt !== null) return;
 		this.pausedAt = this.now();
+		this.pausedAtWall = this.wall();
 		this.events.onPause?.();
 	}
 
 	resume(): void {
 		if (this.pausedAt === null) return;
 		this.phaseStart += this.now() - this.pausedAt;
+		this.phaseStartWall += this.wall() - (this.pausedAtWall ?? this.wall());
 		this.pausedAt = null;
+		this.pausedAtWall = null;
 		this.events.onResume?.(this.index, this.state().remaining);
 	}
 
 	next(): void {
 		if (this.done) return;
-		this.phaseStart = this.pausedAt ?? this.now();
+		this.restartPhase();
 		this.advance();
 	}
 
 	prev(): void {
 		if (this.done) return;
 		if (this.elapsedMs() < 500 && this.index > 0) this.index--;
-		this.phaseStart = this.pausedAt ?? this.now();
+		this.restartPhase();
 		this.announce();
 	}
 
@@ -96,6 +107,12 @@ export class Runner {
 			paused: this.pausedAt !== null,
 			done: this.done,
 		};
+	}
+
+	// Фаза начинается «сейчас» (или в момент паузы, если стоим на паузе)
+	private restartPhase(): void {
+		this.phaseStart = this.pausedAt ?? this.now();
+		this.phaseStartWall = this.pausedAtWall ?? this.wall();
 	}
 
 	private elapsedMs(): number {

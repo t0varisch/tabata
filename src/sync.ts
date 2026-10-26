@@ -70,7 +70,21 @@ export function syncNow(deps: SyncDeps = defaultDeps()): Promise<SyncResult> {
 	return current;
 }
 
+// Любой сбой посреди синхронизации — «error», а не зависшее «Синхронизация…»
 async function run(deps: SyncDeps): Promise<SyncResult> {
+	try {
+		return await attempt(deps);
+	} catch {
+		deps.settings.save({ lastError: "Сбой синхронизации" });
+		return "error";
+	}
+}
+
+function timeout(ms: number): AbortSignal | undefined {
+	return typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(ms) : undefined;
+}
+
+async function attempt(deps: SyncDeps): Promise<SyncResult> {
 	const s = deps.settings.load();
 	if (!s.key) {
 		deps.settings.save({ lastError: "Нет ключа синхронизации" });
@@ -85,6 +99,7 @@ async function run(deps: SyncDeps): Promise<SyncResult> {
 			method: "POST",
 			headers: { ...auth, "Content-Type": "application/json" },
 			body: JSON.stringify({ workouts: dirty.map(strip), device: device() }),
+			signal: timeout(15_000),
 		});
 	} catch {
 		deps.settings.save({ lastError: "Нет сети" });
@@ -116,7 +131,7 @@ async function syncImages(
 		const blob = await deps.store.getImage(sha);
 		if (!blob) continue;
 		try {
-			await deps.fetch(`${server}/images/${sha}`, { method: "PUT", headers: { ...auth, "Content-Type": blob.type }, body: blob });
+			await deps.fetch(`${server}/images/${sha}`, { method: "PUT", headers: { ...auth, "Content-Type": blob.type }, body: blob, signal: timeout(30_000) });
 		} catch {
 			// следующая синхронизация
 		}
@@ -125,7 +140,7 @@ async function syncImages(
 	for (const sha of wanted) {
 		if (body.missingImages.includes(sha) || (await deps.store.getImage(sha))) continue;
 		try {
-			const r = await deps.fetch(`${server}/images/${sha}`, { headers: auth });
+			const r = await deps.fetch(`${server}/images/${sha}`, { headers: auth, signal: timeout(30_000) });
 			if (r.ok) await deps.store.putImage(sha, await r.blob());
 		} catch {
 			// следующая синхронизация

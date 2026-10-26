@@ -565,6 +565,12 @@ input {
 	cursor: pointer;
 }
 
+.run-btn svg,
+.icon-btn svg,
+.btn svg {
+	pointer-events: none;
+}
+
 .run-btn.big {
 	width: 84px;
 	height: 84px;

@@ -115,4 +115,20 @@ describe("syncNow", () => {
 		expect(settings.load().lastSync).not.toBeNull();
 		expect(settings.load().lastError).toBeNull();
 	});
+
+	it("битый ответ сервера: error, а следующая синхронизация снова работает", async () => {
+		const settings = memSettings();
+		const store = memStore([rec("a", 1000, true)]);
+		const broken = async () => new Response("{обрыв", { status: 200 });
+		expect(await syncNow({ fetch: broken as typeof fetch, store, settings })).toBe("error");
+		expect(settings.load().lastError).toBe("Сбой синхронизации");
+		const ok = async () => json({ workouts: [w("a", 1000)], missingImages: [] });
+		expect(await syncNow({ fetch: ok as typeof fetch, store, settings })).toBe("ok");
+	});
+
+	it("запрос к серверу ограничен по времени", async () => {
+		const f = vi.fn(async (_u: string, _i?: RequestInit) => json({ workouts: [], missingImages: [] }));
+		await syncNow({ fetch: f as unknown as typeof fetch, store: memStore([]), settings: memSettings() });
+		expect(f.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
+	});
 });

@@ -112,4 +112,34 @@ describe("Runner", () => {
 		advance(7000);
 		expect(r.tick()).toMatchObject({ index: 1, remaining: 30, paused: true });
 	});
+
+	it("если монотонные часы стояли во сне, а настоящие шли — догоняет по настоящим", () => {
+		let perf = 1000;
+		let wall = 5_000_000;
+		const seen: number[] = [];
+		const r = new Runner(phases, { onPhase: (i) => seen.push(i) }, () => perf, () => wall);
+		r.start();
+		perf += 5000;
+		wall += 5000;
+		r.tick();
+		wall += 95_000; // телефон спал: performance.now стоял
+		expect(r.tick()).toMatchObject({ index: 4, remaining: 25 });
+		expect(seen).toEqual([0, 1, 2, 3, 4]);
+	});
+
+	it("пауза одинаково сдвигает оба вида часов", () => {
+		let perf = 1000;
+		let wall = 5_000_000;
+		const r = new Runner(phases, {}, () => perf, () => wall);
+		r.start();
+		perf += 2000;
+		wall += 2000;
+		r.pause();
+		perf += 60_000;
+		wall += 60_000;
+		r.resume();
+		perf += 1000;
+		wall += 1000;
+		expect(r.tick()).toMatchObject({ index: 0, remaining: 2 });
+	});
 });

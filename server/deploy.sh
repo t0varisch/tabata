@@ -14,10 +14,13 @@ ssh "$HOST" 'test -f ~/tabata/.env || (umask 077; printf "TABATA_KEY=%s\nDATA_DI
 ssh "$HOST" 'cd ~/tabata && docker compose up -d --build 2>&1 | tail -3'
 
 for i in $(seq 1 20); do
-	if ssh "$HOST" 'docker exec rehabcrm-caddy wget -qO- http://tabata-sync:8080/health' 2>/dev/null; then
-		echo
-		echo "tabata-sync: жив внутри сети CRM"
-		exit 0
+	health=$(ssh "$HOST" 'docker exec rehabcrm-caddy wget -qO- http://tabata-sync:8080/health' 2>/dev/null || true)
+	if [ -n "$health" ]; then
+		echo "$health"
+		case "$health" in
+		*'"history":true'*) echo "tabata-sync: жив внутри сети CRM, история пишется"; exit 0 ;;
+		*) echo "tabata-sync жив, но git не работает — истории нет. Логи: ssh $HOST 'docker logs --tail 50 tabata-sync'" >&2; exit 1 ;;
+		esac
 	fi
 	sleep 2
 done

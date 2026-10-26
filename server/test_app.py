@@ -42,7 +42,7 @@ def sync(client, workouts, device="phone"):
 
 def test_health_without_key(env):
     client, _, _ = env
-    assert client.get("/health").json() == {"ok": True}
+    assert client.get("/health").json() == {"ok": True, "history": True}
 
 
 def test_wrong_or_missing_key_is_401(env):
@@ -150,3 +150,14 @@ def test_cors_rejects_foreign_site(env):
         headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"},
     )
     assert "access-control-allow-origin" not in r.headers
+
+
+def test_git_failure_keeps_data_and_reports_in_health(tmp_path):
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / ".git").write_text("not a repo")  # git откажется работать, как при чужом владельце папки
+    client = TestClient(create_app(data, KEY))
+    r = sync(client, [workout()])
+    assert r.status_code == 200
+    assert '"Утро"' in (data / "workouts.json").read_text(encoding="utf-8")
+    assert client.get("/health").json() == {"ok": True, "history": False}

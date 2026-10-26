@@ -10,6 +10,7 @@
 
 import hashlib
 import json
+import logging
 import os
 import re
 import secrets
@@ -29,6 +30,7 @@ ORIGINS = ["https://t0varisch.github.io"]
 LOCAL_ORIGIN_RE = r"^http://(localhost|127\.0\.0\.1):\d+$"
 IMAGE_TYPES = {"image/webp": "webp", "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif"}
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
+log = logging.getLogger("uvicorn.error")
 
 
 class Block(BaseModel):
@@ -66,18 +68,31 @@ class Repo:
     def __init__(self, root: Path):
         self.root = root
         self.lock = threading.Lock()
+        self.history_ok = True
         (root / "images").mkdir(parents=True, exist_ok=True)
-        if not (root / ".git").exists():
-            self.git("init", "-q", "-b", "main")
+        try:
+            if not (root / ".git").exists():
+                self.git("init", "-q", "-b", "main")
             self.git("config", "user.name", "tabata-sync")
             self.git("config", "user.email", "tabata-sync@localhost")
+        except subprocess.CalledProcessError as e:
+            self.history_failed(e)
 
     def git(self, *args: str) -> None:
         subprocess.run(["git", "-C", str(self.root), *args], check=True, capture_output=True)
 
+    def history_failed(self, e: subprocess.CalledProcessError) -> None:
+        self.history_ok = False
+        log.error("git: %s — история не пишется: %s", " ".join(e.cmd[3:]), (e.stderr or b"").decode(errors="replace").strip())
+
+    # Данные уже записаны; сбой git теряет только историю — /health это покажет
     def commit(self, paths: list[str], message: str) -> None:
-        self.git("add", *paths)
-        self.git("commit", "-q", "-m", message)
+        try:
+            self.git("add", *paths)
+            self.git("commit", "-q", "-m", message)
+            self.history_ok = True
+        except subprocess.CalledProcessError as e:
+            self.history_failed(e)
 
     def load(self) -> dict[str, dict]:
         f = self.root / "workouts.json"
@@ -117,7 +132,7 @@ def create_app(data_dir: Path, key: str) -> FastAPI:
 
     @app.get("/health")
     def health():
-        return {"ok": True}
+        return {"ok": True, "history": repo.history_ok}
 
     @app.post("/sync", dependencies=[Depends(auth)])
     async def sync(request: Request):

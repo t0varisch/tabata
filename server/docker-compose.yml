@@ -5,6 +5,8 @@ services:
     build: .
     container_name: tabata-sync
     restart: unless-stopped
+    # Владелец данных — пользователь roman (1000) на сервере, иначе git откажется работать с папкой
+    user: "1000:1000"
     env_file: .env
     volumes:
       - ../tabata-data:/data
