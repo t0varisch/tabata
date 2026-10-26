@@ -1,0 +1,19 @@
+# Сервер синхронизации Табаты. Живёт рядом с CRM в её docker-сети,
+# наружу — только через Caddy CRM: https://api.rehab-wellness.app/tabata/
+services:
+  tabata-sync:
+    build: .
+    container_name: tabata-sync
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ../tabata-data:/data
+    networks: [crm]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+networks:
+  crm:
+    name: rehabcrm_default
+    external: true
