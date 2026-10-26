@@ -19,6 +19,8 @@ export function syncDot(): { el: HTMLElement; destroy: () => void } {
 		el.setAttribute("aria-label", TEXT[s]);
 	};
 	const s = loadSettings();
+	// Без ключа синхронизация просто не настроена — красная точка тут только пугает
+	el.hidden = !s.key;
 	paint(!s.key ? "badkey" : s.lastError === "Нет сети" ? "offline" : s.lastError ? "error" : s.lastSync ? "ok" : "running");
 	return { el, destroy: onSyncStatus(paint) };
 }

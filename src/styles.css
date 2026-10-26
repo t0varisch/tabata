@@ -21,6 +21,11 @@
 	box-sizing: border-box;
 }
 
+/* Атрибут hidden сильнее любого display в стилях компонентов */
+[hidden] {
+	display: none !important;
+}
+
 html,
 body {
 	margin: 0;

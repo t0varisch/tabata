@@ -35,6 +35,7 @@ for (const [width, height] of SIZES) {
 	await page.goto(BASE);
 	await page.getByRole("heading", { name: "Табата" }).waitFor();
 	await noSideScroll(page, `${tag} главная`);
+	if (await page.locator(".sync-dot").isVisible()) fail(`${tag}: точка синхронизации видна без ключа`);
 	await page.screenshot({ path: `${OUT}/home-${tag}.png`, fullPage: true });
 
 	// Новая тренировка: подготовка 1 с, блок 1 — 2 × (5 с / 1 с), блок 2 — 1 × 5 с
