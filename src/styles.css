@@ -450,3 +450,129 @@ input {
 .error:empty {
 	display: none;
 }
+
+/* Экран тренировки: фон цветом фазы на весь экран */
+.run {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: max(14px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+	background: var(--bg);
+	text-align: center;
+	transition: background-color 0.25s;
+	overflow: hidden;
+}
+
+.run[data-kind="work"] {
+	background: var(--work);
+}
+
+.run[data-kind="rest"] {
+	background: var(--rest);
+}
+
+.run[data-kind="prep"] {
+	background: var(--prep);
+}
+
+.run-head {
+	width: 100%;
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	font-size: 15px;
+	opacity: 0.9;
+}
+
+.run-title {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-weight: 600;
+}
+
+.run-left {
+	flex: none;
+	font-variant-numeric: tabular-nums;
+}
+
+.run-info {
+	font-size: 18px;
+	opacity: 0.9;
+	min-height: 1.3em;
+}
+
+.run-label {
+	font-size: clamp(28px, 9vw, 56px);
+	font-weight: 800;
+	line-height: 1.1;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+
+.run-image:empty {
+	display: none;
+}
+
+.run-image img {
+	display: block;
+	max-width: min(80vw, 420px);
+	max-height: 26vh;
+	border-radius: 14px;
+	object-fit: contain;
+}
+
+.run-time {
+	font-size: min(30vw, 40vh);
+	font-weight: 800;
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+}
+
+.run.paused .run-time {
+	opacity: 0.45;
+}
+
+.run-next {
+	font-size: 20px;
+	min-height: 1.3em;
+	opacity: 0.95;
+}
+
+.run-controls {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-wrap: wrap;
+	gap: 14px;
+	width: 100%;
+}
+
+.run-btn {
+	display: grid;
+	place-items: center;
+	width: 60px;
+	height: 60px;
+	border: 0;
+	border-radius: 50%;
+	background: rgba(0, 0, 0, 0.25);
+	color: #fff;
+	cursor: pointer;
+}
+
+.run-btn.big {
+	width: 84px;
+	height: 84px;
+	background: rgba(0, 0, 0, 0.35);
+}
+
+.run[data-kind="done"] .run-controls .btn {
+	flex: 1 1 140px;
+	max-width: 260px;
+}

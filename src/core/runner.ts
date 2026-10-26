@@ -76,6 +76,11 @@ export class Runner {
 		this.announce();
 	}
 
+	// Начало текущей фазы по тем же часам — для расписания сигналов
+	startedAt(): number {
+		return this.phaseStart;
+	}
+
 	stop(): void {
 		this.done = true;
 	}

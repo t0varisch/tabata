@@ -93,6 +93,17 @@ describe("Runner", () => {
 		expect(r.state()).toMatchObject({ index: 0, remaining: 5 });
 	});
 
+	it("после паузы начало фазы сдвигается на длину паузы", () => {
+		const { r, advance } = setup();
+		r.start();
+		expect(r.startedAt()).toBe(1000);
+		advance(2000);
+		r.pause();
+		advance(10_000);
+		r.resume();
+		expect(r.startedAt()).toBe(11_000);
+	});
+
 	it("перемотка на паузе оставляет паузу и полную длину фазы", () => {
 		const { r, advance } = setup();
 		r.start();
