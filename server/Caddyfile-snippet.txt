@@ -1,0 +1,9 @@
+# Вставка в C:\Projects\RehabCRM\Caddyfile, блок api.rehab-wellness.app:
+# строку «reverse_proxy backend:8000» заменить на это. CRM продолжает идти через handle.
+	# Табата — сервер синхронизации таймера (отдельный контейнер tabata-sync, код в C:\Projects\tabata)
+	handle_path /tabata/* {
+		reverse_proxy tabata-sync:8080
+	}
+	handle {
+		reverse_proxy backend:8000
+	}

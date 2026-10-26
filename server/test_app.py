@@ -132,3 +132,21 @@ def test_cors_preflight_for_pages(env):
     )
     assert r.status_code == 200
     assert r.headers["access-control-allow-origin"] == "https://t0varisch.github.io"
+
+
+def test_cors_allows_localhost_any_port(env):
+    client, _, _ = env
+    r = client.options(
+        "/sync",
+        headers={"Origin": "http://localhost:4180", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "authorization,content-type"},
+    )
+    assert r.headers.get("access-control-allow-origin") == "http://localhost:4180"
+
+
+def test_cors_rejects_foreign_site(env):
+    client, _, _ = env
+    r = client.options(
+        "/sync",
+        headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"},
+    )
+    assert "access-control-allow-origin" not in r.headers

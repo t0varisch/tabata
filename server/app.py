@@ -24,7 +24,9 @@ from pydantic import BaseModel, ValidationError
 
 MAX_SYNC_BYTES = 1024 * 1024
 MAX_IMAGE_BYTES = 3 * 1024 * 1024
-ORIGINS = ["https://t0varisch.github.io", "http://localhost:5173", "http://localhost:4173"]
+ORIGINS = ["https://t0varisch.github.io"]
+# Локальная разработка и проверки — любой порт localhost
+LOCAL_ORIGIN_RE = r"^http://(localhost|127\.0\.0\.1):\d+$"
 IMAGE_TYPES = {"image/webp": "webp", "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif"}
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -98,6 +100,7 @@ def create_app(data_dir: Path, key: str) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=ORIGINS,
+        allow_origin_regex=LOCAL_ORIGIN_RE,
         allow_methods=["GET", "POST", "PUT", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
         max_age=86400,
