@@ -110,7 +110,7 @@ export function runView(id: string): View {
 		image.replaceChildren();
 		controls.replaceChildren(
 			h("button.btn.primary", { type: "button", onclick: () => begin() }, icon("play", 20), "Ещё раз"),
-			h("a.btn", { href: "#/" }, "На главную"),
+			h("button.btn", { type: "button", onclick: () => leave() }, "Выйти"),
 		);
 	};
 
@@ -130,16 +130,42 @@ export function runView(id: string): View {
 		paint();
 	});
 
-	function stop() {
-		if (!runner) return;
+	// Защита от жеста «Назад»: лишняя запись в истории с тем же адресом.
+	// «Назад» снимает её (popstate без смены адреса) — тут и спрашиваем.
+	let guarded = false;
+	let leaving = false;
+	const guard = () => {
+		history.pushState({ tabataGuard: true }, "", location.href);
+		guarded = true;
+	};
+	// Уйти туда, откуда начали тренировку (главная или редактор)
+	const leave = () => {
+		leaving = true;
+		if (guarded) history.go(-2);
+		else history.back();
+		guarded = false;
+	};
+
+	// Спросить и закончить; при отказе — продолжить с того же места
+	const askToFinish = (): boolean => {
+		if (!runner || runner.state().done) return true;
 		const wasPaused = runner.state().paused;
 		runner.pause();
-		if (confirm("Закончить тренировку?")) {
-			location.hash = "#/";
-			return;
-		}
+		if (confirm("Закончить тренировку?")) return true;
 		if (!wasPaused) runner.resume();
 		paint();
+		return false;
+	};
+
+	const onPop = () => {
+		if (leaving) return;
+		guarded = false;
+		if (askToFinish()) leave();
+		else guard();
+	};
+
+	function stop() {
+		if (askToFinish()) leave();
 	}
 
 	const begin = () => {
@@ -188,6 +214,7 @@ export function runView(id: string): View {
 			next,
 			controls,
 		);
+		guard();
 		begin();
 		// Переходы фаз считает tick() по часам; 10 раз в секунду хватает для цифр
 		interval = setInterval(() => {
@@ -197,6 +224,7 @@ export function runView(id: string): View {
 	};
 
 	document.addEventListener("visibilitychange", onVisible);
+	window.addEventListener("popstate", onPop);
 
 	if (id === "quick") setup(quickWorkout(loadSettings().quick));
 	else void getWorkout(id).then(setup);
@@ -209,6 +237,7 @@ export function runView(id: string): View {
 			cancelBeeps();
 			clearInterval(interval);
 			document.removeEventListener("visibilitychange", onVisible);
+			window.removeEventListener("popstate", onPop);
 			unwake();
 			for (const u of urls.values()) URL.revokeObjectURL(u);
 		},

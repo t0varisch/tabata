@@ -19,6 +19,7 @@ beforeEach(() => {
 afterEach(() => {
 	view.destroy?.();
 	view.el.remove();
+	vi.restoreAllMocks();
 	vi.useRealTimers();
 });
 
@@ -40,5 +41,43 @@ describe("экран тренировки", () => {
 		const svg = view.el.querySelector('[aria-label="Пауза"] svg');
 		vi.advanceTimersByTime(500);
 		expect(view.el.querySelector('[aria-label="Пауза"] svg')).toBe(svg);
+	});
+});
+
+describe("жест «Назад» на Android", () => {
+	it("во время тренировки спрашивает; при отказе тренировка идёт дальше и защита ставится снова", () => {
+		const ask = vi.spyOn(window, "confirm").mockReturnValue(false);
+		const push = vi.spyOn(history, "pushState");
+		const back = vi.spyOn(history, "back").mockImplementation(() => {});
+		window.dispatchEvent(new PopStateEvent("popstate"));
+		expect(ask).toHaveBeenCalledWith("Закончить тренировку?");
+		expect(push).toHaveBeenCalled();
+		expect(back).not.toHaveBeenCalled();
+		expect(view.el.classList.contains("paused")).toBe(false);
+	});
+
+	it("при согласии уходит назад и не спрашивает второй раз", () => {
+		const ask = vi.spyOn(window, "confirm").mockReturnValue(true);
+		const back = vi.spyOn(history, "back").mockImplementation(() => {});
+		window.dispatchEvent(new PopStateEvent("popstate"));
+		window.dispatchEvent(new PopStateEvent("popstate")); // сам уход назад тоже даёт popstate
+		expect(back).toHaveBeenCalledTimes(1);
+		expect(ask).toHaveBeenCalledTimes(1);
+	});
+
+	it("после «Готово» уходит без вопроса", () => {
+		vi.advanceTimersByTime(96_000);
+		const ask = vi.spyOn(window, "confirm");
+		const back = vi.spyOn(history, "back").mockImplementation(() => {});
+		window.dispatchEvent(new PopStateEvent("popstate"));
+		expect(ask).not.toHaveBeenCalled();
+		expect(back).toHaveBeenCalled();
+	});
+
+	it("«Стоп» с согласием возвращает туда, откуда начали, минуя защитную запись", () => {
+		vi.spyOn(window, "confirm").mockReturnValue(true);
+		const go = vi.spyOn(history, "go").mockImplementation(() => {});
+		(view.el.querySelector('[aria-label="Стоп"]') as HTMLElement).click();
+		expect(go).toHaveBeenCalledWith(-2);
 	});
 });
