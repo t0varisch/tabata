@@ -463,7 +463,6 @@ input {
 	padding: max(14px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
 	background: var(--bg);
 	text-align: center;
-	transition: background-color 0.25s;
 	overflow: hidden;
 }
 
